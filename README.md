@@ -1,2 +1,15 @@
-# tabconf-dlc-wallet-starter
-Tabconf DLC Wallet Starter
+# Tabconf DLC Wallet Starter
+
+## Development
+
+```bash
+yarn install
+
+yarn start
+```
+
+## Production
+
+```bash
+yarn build
+```
