@@ -76,6 +76,11 @@ module.exports = override(
         'process.env': JSON.stringify(process.env)
       })
     );
+
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': require('path').resolve(__dirname, 'src'),
+    };
     
     return config;
   }

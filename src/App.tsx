@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import logo from "./logo.svg";
+import { useEffect, useState } from "react";
+import { Box, Container, Heading, SimpleGrid, VStack, Image, Button } from "@chakra-ui/react";
 import "./App.css";
 import * as cfd from "cfd-js-wasm";
 import * as cfddlc from "cfd-dlc-js-wasm";
@@ -8,106 +8,121 @@ import BitcoinDlcProvider from "@atomicfinance/bitcoin-dlc-provider";
 import { BitcoinEsploraApiProvider } from "@atomicfinance/bitcoin-esplora-api-provider";
 import { BitcoinJsWalletProvider } from "@atomicfinance/bitcoin-js-wallet-provider";
 import FinanceClient from "@atomicfinance/client";
-import { bitcoin, TxInInfoRequest, TxOutRequest } from "@atomicfinance/types";
+import { bitcoin } from "@atomicfinance/types";
 import { BitcoinNetworks } from "bitcoin-networks";
+import Oracle from "./models/Oracle";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function App() {
-  useEffect(() => {
-    async function test() {
-      console.log("cfd", cfd);
+  const [oracleClient, setOracleClient] = useState<Oracle | null>(null);
+  const [aliceClient, setAliceClient] = useState<FinanceClient | null>(null);
+  const [bobClient, setBobClient] = useState<FinanceClient | null>(null);
 
+  useEffect(() => {
+    async function initializeClients() {
       while (!cfd.hasLoadedWasm()) {
-        console.log("waiting for cfd wasm to load");
         await sleep(10);
       }
 
-      console.log("cfdhas loaded", cfd.getCfd());
-
-      const client = new FinanceClient();
       const network = BitcoinNetworks.bitcoin_testnet;
 
-      client.addProvider(
-        new BitcoinEsploraApiProvider({
-          url: "https://testnet-node.atomic.finance/testnet/api",
-          network,
-        })
-      );
-
-      client.addProvider(
-        new BitcoinJsWalletProvider({
-          network,
-          mnemonic: process.env.REACT_APP_MNEMONIC || "",
-          baseDerivationPath: `m/84'/${network.coinType}'/0'`,
-          addressType: bitcoin.AddressType.BECH32,
-        })
-      );
-
-      client.addProvider(new BitcoinCfdProvider(cfd.getCfd()));
-      client.addProvider(new BitcoinDlcProvider(network, cfddlc.getCfddlc()));
-
-      const localInputs: TxInInfoRequest[] = [
-        {
-          txid: "0000000000000000000000000000000000000000000000000000000000000001",
-          vout: 0,
-          maxWitnessLength: 108,
-          inputSerialId: 0,
-        },
-      ];
-
-      const localChange: TxOutRequest = {
-        address: "bcrt1qlgmznucxpdkp5k3ktsct7eh6qrc4tju7ktjukn",
-        amount: 4899999789,
+      // Initialize three separate clients
+      const createClient = (mnemonic: string) => {
+        const client = new FinanceClient();
+        client.addProvider(
+          new BitcoinEsploraApiProvider({
+            url: "https://testnet-node.atomic.finance/testnet/api",
+            network,
+          })
+        );
+        client.addProvider(
+          new BitcoinJsWalletProvider({
+            network,
+            mnemonic,
+            baseDerivationPath: `m/84'/${network.coinType}'/0'`,
+            addressType: bitcoin.AddressType.BECH32,
+          })
+        );
+        client.addProvider(new BitcoinCfdProvider(cfd.getCfd()));
+        client.addProvider(new BitcoinDlcProvider(network, cfddlc.getCfddlc()));
+        return client;
       };
 
-      const remoteInputs: TxInInfoRequest[] = [
-        {
-          txid: "0000000000000000000000000000000000000000000000000000000000000002",
-          vout: 0,
-          maxWitnessLength: 108,
-          inputSerialId: 1,
-        },
-      ];
+      console.log("process.env.REACT_APP_ORACLE_MNEMONIC", process.env.REACT_APP_ORACLE_MNEMONIC);
 
-      const remoteChange: TxOutRequest = {
-        address: "bcrt1qvh2dvgjctwh4z5w7sc93u7h4sug0yrdz2lgpqf",
-        amount: 4899999789,
-      };
+      const oracleClient = createClient(process.env.REACT_APP_ORACLE_MNEMONIC || "");
+      const oracle = await Oracle.BuildOracle(network, oracleClient, cfd.getCfd());
 
-      const test = await client.dlc.CreateFundTransaction({
-        localPubkey: "020b0467b4217a1fee34f6d0e51eac89d67fc152172f42e17d263f7f94543b0bfd",
-        remotePubkey: "03ec03f8e647306d7ddb5674f3d36665a304a77353a8592b586e29725d65485246",
-        outputAmount: 200000170,
-        localInputs,
-        localChange,
-        remoteInputs,
-        remoteChange,
-        feeRate: 100000000,
-      });
-      console.log("test", test);
-
-      const address = await client.wallet.getUnusedAddress();
-      console.log("address", address);
+      setOracleClient(oracle);
+      setAliceClient(createClient(process.env.REACT_APP_ALICE_MNEMONIC || ""));
+      setBobClient(createClient(process.env.REACT_APP_BOB_MNEMONIC || ""));
     }
 
-    test();
+    initializeClients();
   }, []);
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a className="App-link" href="https://reactjs.org" target="_blank" rel="noopener noreferrer">
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Box>
+      {/* Header Section */}
+      <Box bg="gray.100" py={8}>
+        <Container maxW="container.xl">
+          <VStack>
+            <Heading size="xl" textAlign="center">
+              Build a DLC Wallet to Bet on the Presidential Election
+            </Heading>
+            <SimpleGrid columns={2} w="full">
+              <Image
+                src="/trump.jpg" // Add actual image path
+                alt="Donald Trump"
+                borderRadius="md"
+                objectFit="cover"
+              />
+              <Image
+                src="/kamala.jpg" // Add actual image path
+                alt="Kamala Harris"
+                borderRadius="md"
+                objectFit="cover"
+              />
+            </SimpleGrid>
+          </VStack>
+        </Container>
+      </Box>
+
+      {/* Three Sections */}
+      <Container maxW="container.xl" py={8}>
+        <SimpleGrid columns={3}>
+          {/* Oracle Section */}
+          <Box p={6} borderWidth={1} borderRadius="lg">
+            <VStack>
+              <Heading size="lg">Oracle</Heading>
+              <Button onClick={() => console.log("Oracle action")}>Initialize Oracle</Button>
+              {/* Add more oracle-specific buttons/actions */}
+            </VStack>
+          </Box>
+
+          {/* Alice Section */}
+          <Box p={6} borderWidth={1} borderRadius="lg">
+            <VStack>
+              <Heading size="lg">Alice</Heading>
+              <Button onClick={() => console.log("Alice action")}>Get Address</Button>
+              {/* Add more Alice-specific buttons/actions */}
+            </VStack>
+          </Box>
+
+          {/* Bob Section */}
+          <Box p={6} borderWidth={1} borderRadius="lg">
+            <VStack>
+              <Heading size="lg">Bob</Heading>
+              <Button onClick={() => console.log("Bob action")}>Get Address</Button>
+              {/* Add more Bob-specific buttons/actions */}
+            </VStack>
+          </Box>
+        </SimpleGrid>
+      </Container>
+    </Box>
   );
 }
 
