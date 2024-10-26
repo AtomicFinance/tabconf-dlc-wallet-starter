@@ -50,7 +50,7 @@ function MnemonicManager() {
   };
 
   return (
-    <Box as="header" bg="gray.100" p={4} boxShadow="md">
+    <Box as="header" bg="gray.900" p={4} boxShadow="md">
       <Flex justify="space-between" align="center">
         <Text fontSize="2xl" fontWeight="bold">
           tabconf-dlc-wallet-starter

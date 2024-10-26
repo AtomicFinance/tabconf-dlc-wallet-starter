@@ -101,7 +101,7 @@ function App() {
   return (
     <Box>
       <MnemonicManager />
-      <Box bg="gray.100" py={8}>
+      <Box bg="gray.900" py={8}>
         <Container maxW="container.xl">
           <VStack>
             <Heading size="xl" textAlign="center">
