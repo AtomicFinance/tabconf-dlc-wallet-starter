@@ -7,6 +7,7 @@ const webpack = require('webpack');
 const dotenv = require('dotenv');
 dotenv.config();
 const CopyPlugin = require('copy-webpack-plugin');
+const ModuleScopePlugin = require('react-dev-utils/ModuleScopePlugin');
 
 module.exports = override(
   addWebpackPlugin(
@@ -69,8 +70,7 @@ module.exports = override(
       "zlib": require.resolve("browserify-zlib"),
     };
     config.ignoreWarnings = [/Failed to parse source map/];
-    
-    // Add this new section
+
     config.plugins.push(
       new webpack.DefinePlugin({
         'process.env': JSON.stringify(process.env)
@@ -81,6 +81,8 @@ module.exports = override(
       ...config.resolve.alias,
       '@': require('path').resolve(__dirname, 'src'),
     };
+
+    config.resolve.plugins = config.resolve.plugins.filter(plugin => !(plugin instanceof ModuleScopePlugin));
     
     return config;
   }
