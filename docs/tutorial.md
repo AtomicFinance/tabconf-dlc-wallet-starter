@@ -4,7 +4,6 @@ Welcome to the Tabconf DLC Wallet Starter! This guide will walk you through the 
 
 ## Prerequisites
 
-- Ensure you have `yarn` installed on your system.
 - This application is for educational purposes only. Do not use it with real funds in production.
 
 ## Usage Guide
@@ -67,4 +66,4 @@ Open up 3 tabs
 
 ## Conclusion
 
-Congratulations! You have successfully created and executed a DLC on the Signet network using the Tabconf DLC Wallet Starter. For any issues or questions, please refer to the project's repository or contact the maintainers.
+Congratulations! You have successfully created and executed a DLC on the Signet network using the Tabconf DLC Wallet Starter.
