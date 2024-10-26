@@ -48,7 +48,7 @@ function App() {
         const client = new FinanceClient();
         client.addProvider(
           new BitcoinEsploraApiProvider({
-            url: "http://localhost:7777/signet/api",
+            url: process.env.REACT_APP_API_URL || "http://localhost:7777/signet/api",
             network,
           })
         );
