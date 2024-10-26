@@ -21,15 +21,15 @@ const limiter = new Bottleneck({
   reservoirRefreshInterval: 4, // Refresh reservoir every minute
 });
 
-app.get('/ping', (req, res) => {
+app.get('/api/ping', (req, res) => {
   res.send('pong');
 });
 
 // Forward requests to mempool.space/testnet/api
-app.get('/signet/*', async (req, res) => {
+app.get('/api/signet/*', async (req, res) => {
   console.log('Forwarding request to mempool.space/signet');
   const mempoolBaseUrl = 'https://mempool.space';
-  const url = `${mempoolBaseUrl}${req.path}`;
+  const url = `${mempoolBaseUrl}${req.path.replace('/api', '')}`;
 
   console.log('url', url);
 
