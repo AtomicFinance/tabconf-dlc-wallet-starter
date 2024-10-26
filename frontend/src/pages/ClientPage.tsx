@@ -38,6 +38,10 @@ function ClientPage({ client }: ClientPageProps) {
   const [dlcSignJson, setDlcSignJson] = useState<string>("");
   const [dlcTxsHex, setDlcTxsHex] = useState<string>("");
   const [dlcTxsJson, setDlcTxsJson] = useState<string>("");
+  const [isCreatingOffer, setIsCreatingOffer] = useState<boolean>(false);
+  const [sweepTxHex, setSweepTxHex] = useState<string>("");
+  const [isGettingBalance, setIsGettingBalance] = useState<boolean>(false);
+  const [isSweeping, setIsSweeping] = useState<boolean>(false);
 
   useEffect(() => {
     if (!mnemonics) {
@@ -55,68 +59,80 @@ function ClientPage({ client }: ClientPageProps) {
 
   const handleGetBalance = async () => {
     if (client) {
-      const addresses = await client.wallet.getUsedAddresses();
-      const balance = await client.chain.getBalance(addresses);
-      setBalance(balance.toString());
-      console.log(`Balance for ${clientName}:`, balance.toNumber());
+      setIsGettingBalance(true);
+      try {
+        const addresses = await client.wallet.getUsedAddresses();
+        const balance = await client.chain.getBalance(addresses);
+        setBalance(balance.toString());
+        console.log(`Balance for ${clientName}:`, balance.toNumber());
+      } catch (error) {
+        console.error("Failed to get balance:", error);
+      } finally {
+        setIsGettingBalance(false);
+      }
     }
   };
 
   const handleCreateDlcOffer = async () => {
     if (client) {
-      const usedAddresses = await client.wallet.getUsedAddresses();
-      const utxos = await client.getMethod("getUnspentTransactions")(usedAddresses);
+      setIsCreatingOffer(true);
+      try {
+        const usedAddresses = await client.wallet.getUsedAddresses();
+        const utxos = await client.getMethod("getUnspentTransactions")(usedAddresses);
 
-      const inputs: Input[] = utxos.map((utxo: bitcoin.UTXO) => ({
-        txid: utxo.txid,
-        vout: utxo.vout,
-        address: utxo.address,
-        amount: new BN(utxo.value).dividedBy(1e8).toNumber(), // in BTC
-        value: utxo.value, // in Sats
-        maxWitnessLength: 108,
-        redeemScript: "",
-        toUtxo: Input.prototype.toUtxo,
-      }));
+        const inputs: Input[] = utxos.map((utxo: bitcoin.UTXO) => ({
+          txid: utxo.txid,
+          vout: utxo.vout,
+          address: utxo.address,
+          amount: new BN(utxo.value).dividedBy(1e8).toNumber(), // in BTC
+          value: utxo.value, // in Sats
+          maxWitnessLength: 108,
+          redeemScript: "",
+          toUtxo: Input.prototype.toUtxo,
+        }));
 
-      const oracleAnnouncement = OracleAnnouncementV0.deserialize(Buffer.from(oracleAnnouncementHex, "hex"));
+        const oracleAnnouncement = OracleAnnouncementV0.deserialize(Buffer.from(oracleAnnouncementHex, "hex"));
 
-      const oracleInfo = new OracleInfoV0();
-      oracleInfo.announcement = oracleAnnouncement;
+        const oracleInfo = new OracleInfoV0();
+        oracleInfo.announcement = oracleAnnouncement;
 
-      const contractDescriptor = new ContractDescriptorV0();
-      contractDescriptor.outcomes = Object.entries(outcomePayouts).map(([outcome, payout]) => ({
-        outcome: sha256(Buffer.from(outcome, "utf8")),
-        localPayout: payout,
-      }));
+        const contractDescriptor = new ContractDescriptorV0();
+        contractDescriptor.outcomes = Object.entries(outcomePayouts).map(([outcome, payout]) => ({
+          outcome: sha256(Buffer.from(outcome, "utf8")),
+          localPayout: payout,
+        }));
 
-      const totalCollateral = partyBetAmount.local + partyBetAmount.remote;
-      const contractInfo = new ContractInfoV0();
-      contractInfo.totalCollateral = totalCollateral;
-      contractInfo.contractDescriptor = contractDescriptor;
-      contractInfo.oracleInfo = oracleInfo;
+        const totalCollateral = partyBetAmount.local + partyBetAmount.remote;
+        const contractInfo = new ContractInfoV0();
+        contractInfo.totalCollateral = totalCollateral;
+        contractInfo.contractDescriptor = contractDescriptor;
+        contractInfo.oracleInfo = oracleInfo;
 
-      const feeRatePerVb = BigInt(10);
-      const cetLocktime = 1617170572;
-      const refundLocktime = 1617170573;
+        const feeRatePerVb = BigInt(10);
+        const cetLocktime = 1617170572;
+        const refundLocktime = 1617170573;
 
-      console.log("inputs", inputs);
+        console.log("inputs", inputs);
 
-      const dlcOffer = await client.dlc.createDlcOffer(
-        contractInfo,
-        partyBetAmount.local,
-        feeRatePerVb,
-        cetLocktime,
-        refundLocktime,
-        inputs
-      );
+        const dlcOffer = await client.dlc.createDlcOffer(
+          contractInfo,
+          partyBetAmount.local,
+          feeRatePerVb,
+          cetLocktime,
+          refundLocktime,
+          inputs
+        );
 
-      // const dlcOfferV0 = DlcOfferV0.deserialize(dlcOffer.serialize());
-      // console.log("working");
-      console.log("dlcOffer.serialize()", dlcOffer.serialize().toString("hex"));
+        DlcOfferV0.deserialize(dlcOffer.serialize()); // validate the offer
 
-      setDlcOfferHex(dlcOffer.serialize().toString("hex"));
-      setDlcOfferJson(JSON.stringify(dlcOffer.toJSON(), null, 2));
-      console.log("DLC Offer Created:", dlcOffer);
+        setDlcOfferHex(dlcOffer.serialize().toString("hex"));
+        setDlcOfferJson(JSON.stringify(dlcOffer.toJSON(), null, 2));
+        console.log("DLC Offer Created:", dlcOffer);
+      } catch (error) {
+        console.error("Failed to create DLC Offer:", error);
+      } finally {
+        setIsCreatingOffer(false);
+      }
     }
   };
 
@@ -170,6 +186,30 @@ function ClientPage({ client }: ClientPageProps) {
     }
   };
 
+  const handleSweepToFaucet = async () => {
+    if (client) {
+      setIsSweeping(true);
+      try {
+        const faucetAddress = process.env.REACT_APP_FAUCET_ADDRESS;
+        console.log("faucetAddress", faucetAddress);
+        if (!faucetAddress) {
+          console.error("Faucet address is not defined in the environment variables.");
+          return;
+        }
+
+        const tx = await client.wallet.buildSweepTransactionWithSetOutputs(faucetAddress, 10, [], []);
+        console.log("tx", tx);
+        console.log(`Funds swept to faucet address: ${faucetAddress}`);
+
+        setSweepTxHex(tx.hex);
+      } catch (error) {
+        console.error("Failed to sweep funds to faucet:", error);
+      } finally {
+        setIsSweeping(false);
+      }
+    }
+  };
+
   return (
     <Box>
       {mnemonics ? (
@@ -180,10 +220,19 @@ function ClientPage({ client }: ClientPageProps) {
               Get Address
             </Button>
             {address && <Text>Address: {address}</Text>}
-            <Button onClick={handleGetBalance} disabled={!client}>
-              Get Balance
+            <Button onClick={handleGetBalance} disabled={!client || isGettingBalance}>
+              {isGettingBalance ? "Loading Balance..." : "Get Balance"}
             </Button>
             {balance && <Text>Balance: {balance}</Text>}
+            <Button onClick={handleSweepToFaucet} disabled={!client || isSweeping}>
+              {isSweeping ? "Sweeping..." : "Sweep back to Faucet"}
+            </Button>
+            {sweepTxHex && (
+              <>
+                <Text>Sweep Transaction (Hex):</Text>
+                <Textarea value={sweepTxHex} readOnly={true} />
+              </>
+            )}
             <Textarea
               placeholder="Enter Oracle Announcement"
               value={oracleAnnouncementHex}
@@ -204,8 +253,8 @@ function ClientPage({ client }: ClientPageProps) {
               placeholder="Enter Remote Bet Amount"
               onChange={(e) => setPartyBetAmount({ ...partyBetAmount, remote: BigInt(e.target.value) })}
             />
-            <Button onClick={handleCreateDlcOffer} disabled={!client || !oracleAnnouncementHex}>
-              Create DLC Offer
+            <Button onClick={handleCreateDlcOffer} disabled={!client || !oracleAnnouncementHex || isCreatingOffer}>
+              {isCreatingOffer ? "Creating..." : "Create DLC Offer"}
             </Button>
             {dlcOfferHex && (
               <>
