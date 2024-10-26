@@ -26,6 +26,10 @@ function CounterpartyPage({ client }: CounterpartyPageProps) {
   const [fundingTransactionHex, setFundingTransactionHex] = useState<string>("");
   const [oracleAttestationHex, setOracleAttestationHex] = useState<string>("");
   const [cetHex, setCetHex] = useState<string>("");
+  const [isGettingBalance, setIsGettingBalance] = useState<boolean>(false);
+  const [isSweeping, setIsSweeping] = useState<boolean>(false);
+  const [sweepTxHex, setSweepTxHex] = useState<string>("");
+  const [isAcceptingDlcOffer, setIsAcceptingDlcOffer] = useState<boolean>(false);
 
   const handleGetAddress = async () => {
     if (client) {
@@ -37,40 +41,54 @@ function CounterpartyPage({ client }: CounterpartyPageProps) {
 
   const handleGetBalance = async () => {
     if (client) {
-      const addresses = await client.wallet.getUsedAddresses();
-      const balance = await client.chain.getBalance(addresses);
-      setBalance(balance.toString());
-      console.log(`Balance for ${clientName}:`, balance);
+      setIsGettingBalance(true);
+      try {
+        const addresses = await client.wallet.getUsedAddresses();
+        const balance = await client.chain.getBalance(addresses);
+        setBalance(balance.toString());
+        console.log(`Balance for ${clientName}:`, balance);
+      } catch (error) {
+        console.error("Failed to get balance:", error);
+      } finally {
+        setIsGettingBalance(false);
+      }
     }
   };
 
   const handleAcceptDlcOffer = async () => {
     if (client && dlcOfferHex) {
-      const usedAddresses = await client.wallet.getUsedAddresses();
-      const utxos = await client.getMethod("getUnspentTransactions")(usedAddresses);
+      setIsAcceptingDlcOffer(true);
+      try {
+        const usedAddresses = await client.wallet.getUsedAddresses();
+        const utxos = await client.getMethod("getUnspentTransactions")(usedAddresses);
 
-      const inputs: Input[] = utxos.map((utxo: bitcoin.UTXO) => ({
-        txid: utxo.txid,
-        vout: utxo.vout,
-        address: utxo.address,
-        amount: new BN(utxo.value).dividedBy(1e8).toNumber(), // in BTC
-        value: utxo.value, // in Sats
-        maxWitnessLength: 108,
-        redeemScript: "",
-        toUtxo: Input.prototype.toUtxo,
-      }));
+        const inputs: Input[] = utxos.map((utxo: bitcoin.UTXO) => ({
+          txid: utxo.txid,
+          vout: utxo.vout,
+          address: utxo.address,
+          amount: new BN(utxo.value).dividedBy(1e8).toNumber(), // in BTC
+          value: utxo.value, // in Sats
+          maxWitnessLength: 108,
+          redeemScript: "",
+          toUtxo: Input.prototype.toUtxo,
+        }));
 
-      const dlcOffer = DlcOfferV0.deserialize(Buffer.from(dlcOfferHex, "hex"));
-      // Logic to accept the DLC offer using the provided hex
-      console.log("DLC Offer Accepted:", dlcOfferHex);
+        const dlcOffer = DlcOfferV0.deserialize(Buffer.from(dlcOfferHex, "hex"));
+        // Logic to accept the DLC offer using the provided hex
+        console.log("DLC Offer Accepted:", dlcOfferHex);
 
-      const dlcAcceptResponse = await client.dlc.acceptDlcOffer(dlcOffer, inputs);
-      console.log("DLC Accept:", dlcAcceptResponse);
+        const dlcAcceptResponse = await client.dlc.acceptDlcOffer(dlcOffer, inputs);
+        console.log("DLC Accept:", dlcAcceptResponse);
 
-      setDlcAcceptHex(dlcAcceptResponse.dlcAccept.serialize().toString("hex"));
-      setDlcAcceptJson(JSON.stringify(dlcAcceptResponse.dlcAccept.toJSON(), null, 2));
-      setDlcTxsHex(dlcAcceptResponse.dlcTransactions.serialize().toString("hex"));
-      setDlcTxsJson(JSON.stringify(dlcAcceptResponse.dlcTransactions.toJSON(), null, 2));
+        setDlcAcceptHex(dlcAcceptResponse.dlcAccept.serialize().toString("hex"));
+        setDlcAcceptJson(JSON.stringify(dlcAcceptResponse.dlcAccept.toJSON(), null, 2));
+        setDlcTxsHex(dlcAcceptResponse.dlcTransactions.serialize().toString("hex"));
+        setDlcTxsJson(JSON.stringify(dlcAcceptResponse.dlcTransactions.toJSON(), null, 2));
+      } catch (error) {
+        console.error("Failed to accept DLC offer:", error);
+      } finally {
+        setIsAcceptingDlcOffer(false);
+      }
     }
   };
 
@@ -126,6 +144,30 @@ function CounterpartyPage({ client }: CounterpartyPageProps) {
     }
   };
 
+  const handleSweepToFaucet = async () => {
+    if (client) {
+      setIsSweeping(true);
+      try {
+        const faucetAddress = process.env.REACT_APP_FAUCET_ADDRESS;
+        console.log("faucetAddress", faucetAddress);
+        if (!faucetAddress) {
+          console.error("Faucet address is not defined in the environment variables.");
+          return;
+        }
+
+        const tx = await client.wallet.buildSweepTransactionWithSetOutputs(faucetAddress, 10, [], []);
+        console.log("tx", tx);
+        console.log(`Funds swept to faucet address: ${faucetAddress}`);
+
+        setSweepTxHex(tx.hex);
+      } catch (error) {
+        console.error("Failed to sweep funds to faucet:", error);
+      } finally {
+        setIsSweeping(false);
+      }
+    }
+  };
+
   return (
     <Box>
       {mnemonics ? (
@@ -136,10 +178,19 @@ function CounterpartyPage({ client }: CounterpartyPageProps) {
               Get Address
             </Button>
             {address && <Text>Address: {address}</Text>}
-            <Button onClick={handleGetBalance} disabled={!client}>
-              Get Balance
+            <Button onClick={handleGetBalance} disabled={!client || isGettingBalance}>
+              {isGettingBalance ? "Loading Balance..." : "Get Balance"}
             </Button>
             {balance && <Text>Balance: {balance}</Text>}
+            <Button onClick={handleSweepToFaucet} disabled={!client || isSweeping}>
+              {isSweeping ? "Sweeping..." : "Sweep back to Faucet"}
+            </Button>
+            {sweepTxHex && (
+              <>
+                <Text>Sweep Transaction (Hex):</Text>
+                <Textarea value={sweepTxHex} readOnly={true} />
+              </>
+            )}
             <Textarea
               placeholder="Enter DLC Offer Hex"
               value={dlcOfferHex}
@@ -151,8 +202,8 @@ function CounterpartyPage({ client }: CounterpartyPageProps) {
                 <Textarea value={dlcOfferJson} readOnly={true} />
               </>
             )}
-            <Button onClick={handleAcceptDlcOffer} disabled={!client || !dlcOfferHex}>
-              Accept DLC Offer
+            <Button onClick={handleAcceptDlcOffer} disabled={!client || !dlcOfferHex || isAcceptingDlcOffer}>
+              {isAcceptingDlcOffer ? "Accepting DLC Offer..." : "Accept DLC Offer"}
             </Button>
             {dlcAcceptHex && (
               <>
