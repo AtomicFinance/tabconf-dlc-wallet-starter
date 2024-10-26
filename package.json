@@ -1,77 +1,12 @@
 {
-  "name": "bal-test3",
-  "version": "0.1.0",
+  "name": "my-fullstack-app",
+  "version": "1.0.0",
   "private": true,
-  "dependencies": {
-    "@atomicfinance/bitcoin-rpc-provider": "3.5.1",
-    "@atomicfinance/bitcoin-cfd-provider": "3.5.1",
-    "@atomicfinance/bitcoin-dlc-provider": "3.5.1",
-    "@atomicfinance/bitcoin-esplora-api-provider": "3.5.1",
-    "@atomicfinance/bitcoin-esplora-batch-api-provider": "3.5.1",
-    "@atomicfinance/bitcoin-js-wallet-provider": "3.5.1",
-    "@atomicfinance/client": "3.5.1",
-    "@atomicfinance/types": "3.5.1",
-    "@chakra-ui/react": "^3.0.0-next.32",
-    "@emotion/react": "^11.13.3",
-    "@emotion/styled": "^11.13.0",
-    "@node-lightning/crypto": "0.26.1",
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
-    "@types/jest": "^27.5.2",
-    "@types/node": "^16.18.113",
-    "@types/react": "^18.3.11",
-    "@types/react-dom": "^18.3.1",
-    "bitcoin-networks": "1.0.0",
-    "cfd-dlc-js-wasm": "github:zpv/cfd-dlc-js-wasm#semver:1.0.4",
-    "cfd-js-wasm": "github:atomicfinance/cfd-js-wasm#v0.4.10",
-    "framer-motion": "^11.11.9",
-    "next-themes": "^0.3.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-icons": "^5.3.0",
-    "react-scripts": "5.0.1",
-    "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4"
-  },
   "scripts": {
-    "start": "react-app-rewired start",
-    "build": "react-app-rewired build",
-    "test": "react-app-rewired test",
-    "eject": "react-scripts eject",
-    "seed": "node scripts/generate-mnemonic.js"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "start": "concurrently \"yarn start --cwd frontend\" \"yarn start --cwd backend\"",
+    "build": "yarn build --cwd frontend && yarn build --cwd backend"
   },
   "devDependencies": {
-    "assert": "^2.1.0",
-    "browserify-zlib": "^0.2.0",
-    "buffer": "^6.0.3",
-    "copy-webpack-plugin": "^12.0.2",
-    "crypto-browserify": "^3.12.0",
-    "customize-cra": "^1.0.0",
-    "exports-loader": "^5.0.0",
-    "path-browserify": "^1.0.1",
-    "process": "^0.11.10",
-    "react-app-rewired": "^2.2.1",
-    "stream-browserify": "^3.0.0",
-    "ts-node": "10.9.2",
-    "vm-browserify": "^1.1.2"
+    "concurrently": "^9.0.1"
   }
 }
